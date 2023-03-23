@@ -27,26 +27,41 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * if rpc protocol is ws or wss, method return null
+ */
 @Slf4j
-public class Aria2Http implements Aria2 {
+public class Aria2Impl implements Aria2 {
 
     private final String uri;
     private final String token;
     private final HttpClient client;
     private final ObjectMapper objectMapper;
+    private boolean isWs = false;
+    private WebSocket webSocket = null;
 
-    public Aria2Http(String jsonrpc, String token) {
+    public Aria2Impl(String jsonrpc, String token) {
+        this(jsonrpc, token, null);
+    }
+
+    public Aria2Impl(String jsonrpc, String token, WebSocket.Listener listener) {
         this.uri = jsonrpc;
-        this.token = Optional.ofNullable(token)
-                .map(e -> "token:" + e)
-                .orElse(null);
+        this.token = Optional.ofNullable(token).map(e -> "token:" + e).orElse(null);
         client = HttpClient.newHttpClient();
+        if (jsonrpc.startsWith("ws")) {
+            if (listener == null) {
+                throw new RuntimeException("listener not allow null if rpc protocol is ws or wss");
+            }
+            isWs = true;
+            webSocket = client.newWebSocketBuilder().buildAsync(URI.create(uri), listener).join();
+        }
         objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         objectMapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
@@ -56,20 +71,24 @@ public class Aria2Http implements Aria2 {
     public <T> RpcResponse<T> post(RpcRequest requestEntity, TypeReference<RpcResponse<T>> typeReference) {
         try {
             var body = objectMapper.writeValueAsString(requestEntity);
+            if (isWs) {
+                webSocket.sendText(body, true);
+                return new RpcResponse<>();
+            }
             var request = HttpRequest.newBuilder()
                     .uri(URI.create(uri))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                     .build();
             var resultEntity = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            log.debug("返回信息:{}", resultEntity.body());
+            log.debug("Body:{}", resultEntity.body());
             return objectMapper.readValue(resultEntity.body(), typeReference);
         }
         catch (JsonProcessingException e) {
-            log.error("序列化请求失败:{}", e.getMessage());
+            log.error("Serializable failed:{}", e.getMessage());
         }
         catch (IOException | InterruptedException e) {
-            log.error("请求失败:{}", e.getMessage());
+            log.error("Request {} failed:{}", requestEntity.getMethod(), e.getMessage());
         }
         return new RpcResponse<>();
     }

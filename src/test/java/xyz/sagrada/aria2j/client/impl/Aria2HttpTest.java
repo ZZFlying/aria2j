@@ -3,15 +3,22 @@ package xyz.sagrada.aria2j.client.impl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import xyz.sagrada.aria2j.client.Aria2;
-import xyz.sagrada.aria2j.domin.entity.VersionInfo;
+import xyz.sagrada.aria2j.domin.entity.MulticallMethod;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 class Aria2HttpTest {
 
     private static Aria2 aria2;
 
+    private static final String uri = "http://debian.vm:6800/jsonrpc";
+    private static final String token = "32#4grw#e6jh2#13f";
+
     @BeforeAll
     static void init() {
-        aria2 = new Aria2Http("http://localhost:6800/jsonrpc", "32#4grw#e6jh2#13f");
+        aria2 = new Aria2Impl(uri, token, new Aria2ListenerDemo());
     }
 
 
@@ -65,11 +72,12 @@ class Aria2HttpTest {
 
     @Test
     void getGlobalOption() {
-        System.out.println(aria2.getGlobalOption());
+        Optional.ofNullable(aria2.getGlobalOption()).ifPresent(System.out::println);
     }
 
     @Test
     void getGlobalStat() {
+        Optional.ofNullable(aria2.getGlobalStat()).ifPresent(System.out::println);
     }
 
     @Test
@@ -94,15 +102,21 @@ class Aria2HttpTest {
 
     @Test
     void getVersion() {
-        VersionInfo versionInfo = aria2.getVersion();
+        Optional.ofNullable(aria2.getVersion()).ifPresent(System.out::println);
     }
 
     @Test
     void listMethods() {
+        Optional.ofNullable(aria2.listMethods()).ifPresent(e -> e.forEach(System.out::println));
     }
 
     @Test
     void multicall() {
+        List<MulticallMethod> methodList = new ArrayList<>();
+        methodList.add(new MulticallMethod(Aria2.LIST_METHODS, null));
+        methodList.add(new MulticallMethod(Aria2.LIST_NOTIFICATIONS, null));
+        methodList.add(new MulticallMethod(Aria2.TELL_ACTIVE, new String[0]));
+        Optional.ofNullable(aria2.multicall(methodList)).ifPresent(e -> e.forEach(System.out::println));
     }
 
     @Test
@@ -139,7 +153,7 @@ class Aria2HttpTest {
 
     @Test
     void tellStatus() {
-        System.out.println(aria2.tellActive(new String[]{}));
+        Optional.ofNullable(aria2.tellActive(new String[0])).ifPresent(System.out::println);
     }
 
     @Test
@@ -160,6 +174,7 @@ class Aria2HttpTest {
 
     @Test
     void listNotifications() {
+        Optional.ofNullable(aria2.listNotifications()).ifPresent(e -> e.forEach(System.out::println));
     }
 
     @Test

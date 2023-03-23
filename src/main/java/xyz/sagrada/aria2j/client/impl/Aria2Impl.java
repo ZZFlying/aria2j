@@ -366,6 +366,9 @@ public class Aria2Impl implements Aria2 {
                 }
             });
         }
+        else {
+            methodList.forEach(method -> method.setParams(method.getTempParams()));
+        }
         RpcRequest request = new RpcRequest(MULTICALL, null, methodList);
         return post(request, new TypeReference<RpcResponse<List<Object>>>() {
         }).getResult();
